@@ -55,8 +55,6 @@ add_action('rest_api_init', function () {
     'events',
     'event_title',
     array(
-      'get_callback'    => 'get_event_title',
-      'update_callback' => 'update_event_title',
       'schema'          => array(
         'type'        => 'string',
         'description' => 'Event title',
@@ -68,8 +66,6 @@ add_action('rest_api_init', function () {
     'events',
     'event_description',
     array(
-      'get_callback'    => 'get_event_description',
-      'update_callback' => 'update_event_description',
       'schema'          => array(
         'type'        => 'string',
         'description' => 'Event description',
@@ -81,8 +77,6 @@ add_action('rest_api_init', function () {
     'events',
     'event_start_date',
     array(
-      'get_callback'    => 'get_event_start_date',
-      'update_callback' => 'update_event_start_date',
       'schema'          => array(
         'type'        => 'string',
         'description' => 'Event start date',
@@ -94,8 +88,6 @@ add_action('rest_api_init', function () {
     'events',
     'event_end_date',
     array(
-      'get_callback'    => 'get_event_end_date',
-      'update_callback' => 'update_event_end_date',
       'schema'          => array(
         'type'        => 'string',
         'description' => 'Event end date',
@@ -107,8 +99,6 @@ add_action('rest_api_init', function () {
     'events',
     'event_price',
     array(
-      'get_callback'    => 'get_event_price',
-      'update_callback' => 'update_event_price',
       'schema'          => array(
         'type'        => 'number',
         'description' => 'Event price',
@@ -120,8 +110,6 @@ add_action('rest_api_init', function () {
     'events',
     'event_location',
     array(
-      'get_callback'    => 'get_event_location',
-      'update_callback' => 'update_event_location',
       'schema'          => array(
         'type'        => 'string',
         'description' => 'Event location',
@@ -133,52 +121,52 @@ add_action('rest_api_init', function () {
     'events',
     'event_image',
     array(
-        'get_callback' => function ($object, $field_name, $request) {
-            $image_id = get_post_thumbnail_id($object['id']);
-            $image = wp_get_attachment_image_src($image_id, 'full');
-            return $image[0];
-        },
-        'update_callback' => function ($value, $object, $field_name, $request) {
-            if (isset($value['id'])) {
-                set_post_thumbnail($object->ID, $value['id']);
-                $image_url = wp_get_attachment_image_src($value['id'], 'full')[0];
-            } elseif (isset($value['url'])) {
-                $image_url = $value['url'];
-                $image_id = media_sideload_image($image_url, $object->ID);
-                if (!is_wp_error($image_id)) {
-                    set_post_thumbnail($object->ID, $image_id);
-                }
-            }
-            update_post_meta($object->ID, 'event_image_url', $image_url);
-            return true;
-        },
-        'schema' => array(
-            'type'       => 'object',
-            'properties' => array(
-                'id' => array(
-                    'type'        => 'integer',
-                    'description' => 'ID of the event image attachment',
-                    'context'     => array('view', 'edit'),
-                ),
-                'url' => array(
-                    'type'        => 'string',
-                    'description' => 'URL of the event image',
-                    'context'     => array('view', 'edit'),
-                ),
-                'width' => array(
-                    'type'        => 'integer',
-                    'description' => 'Width of the event image',
-                    'context'     => array('view', 'edit'),
-                ),
-                'height' => array(
-                    'type'        => 'integer',
-                    'description' => 'Height of the event image',
-                    'context'     => array('view', 'edit'),
-                ),
-            ),
+      'get_callback' => function ($object, $field_name, $request) {
+        $image_id = get_post_thumbnail_id($object['id']);
+        $image = wp_get_attachment_image_src($image_id, 'full');
+        return $image[0];
+      },
+      'update_callback' => function ($value, $object, $field_name, $request) {
+        if (isset($value['id'])) {
+          set_post_thumbnail($object->ID, $value['id']);
+          $image_url = wp_get_attachment_image_src($value['id'], 'full')[0];
+        } elseif (isset($value['url'])) {
+          $image_url = $value['url'];
+          $image_id = media_sideload_image($image_url, $object->ID);
+          if (!is_wp_error($image_id)) {
+            set_post_thumbnail($object->ID, $image_id);
+          }
+        }
+        update_post_meta($object->ID, 'event_image_url', $image_url);
+        return true;
+      },
+      'schema' => array(
+        'type'       => 'object',
+        'properties' => array(
+          'id' => array(
+            'type'        => 'integer',
+            'description' => 'ID of the event image attachment',
+            'context'     => array('view', 'edit'),
+          ),
+          'url' => array(
+            'type'        => 'string',
+            'description' => 'URL of the event image',
+            'context'     => array('view', 'edit'),
+          ),
+          'width' => array(
+            'type'        => 'integer',
+            'description' => 'Width of the event image',
+            'context'     => array('view', 'edit'),
+          ),
+          'height' => array(
+            'type'        => 'integer',
+            'description' => 'Height of the event image',
+            'context'     => array('view', 'edit'),
+          ),
         ),
+      ),
     )
-);
+  );
 
 
 
@@ -349,24 +337,25 @@ function create_event($request)
   // Handle image upload
   $image_id = 0;
   $image_url = '';
-  if(isset($_FILES['event_image'])) {
-      $upload = wp_upload_bits($_FILES['event_image']['name'], null, file_get_contents($_FILES['event_image']['tmp_name']));
-      if(isset($upload['error']) && $upload['error'] != 0) {
-          return new WP_Error('upload_error', __('Error uploading image.', 'text-domain'), array('status' => 400));
-      } else {
-          $image_id = wp_insert_attachment(array(
-              'post_mime_type' => $upload['type'],
-              'post_title' => preg_replace('/\.[^.]+$/', '', $_FILES['event_image']['name']),
-              'post_content' => '',
-              'post_status' => 'inherit'
-          ), $upload['file']);
-          require_once( ABSPATH . 'wp-admin/includes/image.php' );
-          $attachment_data = wp_generate_attachment_metadata( $image_id, $upload['file'] );
-          wp_update_attachment_metadata( $image_id, $attachment_data );
-          $image_url = wp_get_attachment_url( $image_id );
-      }
+  if (isset($_FILES['event_image'])) {
+    $upload = wp_upload_bits($_FILES['event_image']['name'], null, file_get_contents($_FILES['event_image']['tmp_name']));
+    if (isset($upload['error']) && $upload['error'] != 0) {
+      return new WP_Error('upload_error', __('Error uploading image.', 'text-domain'), array('status' => 400));
+    } else {
+      $image_id = wp_insert_attachment(array(
+        'post_mime_type' => $upload['type'],
+        'post_title' => preg_replace('/\.[^.]+$/', '', $_FILES['event_image']['name']),
+        'post_content' => '',
+        'post_status' => 'inherit'
+      ), $upload['file']);
+      require_once(ABSPATH . 'wp-admin/includes/image.php');
+      $attachment_data = wp_generate_attachment_metadata($image_id, $upload['file']);
+      set_post_thumbnail($post_id, $image_id);
+      wp_update_attachment_metadata($image_id, $attachment_data);
+      $image_url = wp_get_attachment_url($image_id);
+    }
   }
-  
+
   $response = array(
     'status' => 'success',
     'message' => 'Event created successfully!',
@@ -387,68 +376,23 @@ function create_event($request)
 
 // Update event
 function update_event($request)
-{
-  $id = (int) $request['id'];
+{  
+  $id = (int) $request['id'];  
   $event = get_post($id);
-
   // Check if event exists
   if (!$event || $event->post_type !== 'event') {
     return new WP_Error('no_event', __('Invalid event ID', 'text-domain'), array('status' => 404));
   }
 
-  $event_data = $request->get_params();
-
-  // Validate required fields
-  if (empty($event_data['event_title']) || empty($event_data['event_description']) || empty($event_data['event_start_date']) || empty($event_data['event_end_date']) || empty($event_data['event_price']) || empty($event_data['event_location'])) {
-    return new WP_Error('missing_fields', __('Missing required fields.', 'text-domain'), array('status' => 400));
-  }
+  var_dump($request->get_params());
 
   // Sanitize and validate input data
-  $event_title = sanitize_text_field($event_data['event_title']);
-  $event_description = sanitize_text_field($event_data['event_description']);
-  $event_start_date = sanitize_text_field($event_data['event_start_date']);
-  $event_end_date = sanitize_text_field($event_data['event_end_date']);
-  $event_price = floatval($event_data['event_price']);
-  $event_location = sanitize_text_field($event_data['event_location']);
-
-  // Validate input data
-  if (strlen($event_title) < 5) {
-    return new WP_Error('invalid_title', __('Title should be at least 5 characters long.', 'text-domain'), array('status' => 400));
-  }
-
-  if (strlen($event_description) < 10) {
-    return new WP_Error('invalid_description', __('Description should be at least 10 characters long.', 'text-domain'), array('status' => 400));
-  }
-
-
-  if (!is_numeric($event_price)) {
-    return new WP_Error('invalid_price', __('Price should be a number.', 'text-domain'), array('status' => 400));
-  }
-
-  // Validate start and end date
-  $current_date = date('Y-m-d');
-  if ($event_start_date < $current_date || $event_end_date < $current_date) {
-    return new WP_Error('invalid_date', __('Event date cannot be older than the current date.', 'text-domain'), array('status' => 400));
-  }
-
-  // Handle image file if uploaded
-  $file = $request->get_file_params();
-  if (!empty($file['file'])) {
-    // Delete old image if exists
-    $old_image = get_post_meta($id, 'event_image', true);
-    if (!empty($old_image)) {
-      wp_delete_attachment($old_image, true);
-    }
-
-    // Upload new image
-    $attachment_id = media_handle_upload('file', $id);
-    if (is_wp_error($attachment_id)) {
-      return new WP_Error('upload_error', $attachment_id->get_error_message(), array('status' => 500));
-    }
-
-    // Update event image meta data
-    update_post_meta($id, 'event_image', $attachment_id);
-  }
+  $event_title = sanitize_text_field( $request->get_param( 'event_title' ) );
+  $event_description = sanitize_text_field( $request->get_param( 'event_description' ) );
+  $event_start_date = sanitize_text_field( $request->get_param( 'event_start_date' ) );
+  $event_end_date = sanitize_text_field( $request->get_param( 'event_end_date' ) );
+  $event_price = floatval( $request->get_param( 'event_price' ) );
+  $event_location = sanitize_text_field( $request->get_param( 'event_location' ) );
 
   // Update post
   $post_data = array(
@@ -466,25 +410,48 @@ function update_event($request)
   }
 
   // Update event meta data
-  update_post_meta($id, 'event_start_date', $event_start_date);
-  update_post_meta($id, 'event_end_date', $event_end_date);
-  update_post_meta($id, 'event_price', $event_price);
-  update_post_meta($id, 'event_location', $event_location);
+  update_post_meta($post_id, 'event_start_date', $event_start_date);
+  update_post_meta($post_id, 'event_end_date', $event_end_date);
+  update_post_meta($post_id, 'event_price', $event_price);
+  update_post_meta($post_id, 'event_location', $event_location);
 
-  // Return updated event data
-  $updated_event = get_post($id);
+  // Handle image upload
+  $image_id = 0;
+  $image_url = '';
+  if (isset($_FILES['event_image'])) {
+    $upload = wp_upload_bits($_FILES['event_image']['name'], null, file_get_contents($_FILES['event_image']['tmp_name']));
+    if (isset($upload['error']) && $upload['error'] != 0) {
+      return new WP_Error('upload_error', __('Error uploading image.', 'text-domain'), array('status' => 400));
+    } else {
+      $image_id = wp_insert_attachment(array(
+        'post_mime_type' => $upload['type'],
+        'post_title' => preg_replace('/.[^.]+$/', '', $_FILES['event_image']['name']),
+        'post_content' => '',
+        'post_status' => 'inherit'
+      ), $upload['file']);
+      require_once(ABSPATH . 'wp-admin/includes/image.php');
+      $attachment_data = wp_generate_attachment_metadata($image_id, $upload['file']);
+      set_post_thumbnail($post_id, $image_id);
+      wp_update_attachment_metadata($image_id, $attachment_data);
+      $image_url = wp_get_attachment_url($image_id);
+    }
+  }
+
   $response = array(
-    'event_id' => $updated_event->ID,
-    'event_title' => $updated_event->post_title,
-    'event_description' => $updated_event->post_content,
-    'event_start_date' => get_post_meta($id, 'event_start_date', true),
-    'event_end_date' => get_post_meta($id, 'event_end_date', true),
-    'event_price' => get_post_meta($id, 'event_price', true),
-    'event_location' => get_post_meta($id, 'event_location', true),
-    'event_image' => get_post_meta($id, 'event_image', true),
+    'status' => 'success',
+    'message' => 'Event updated successfully!',
+    'data' => array(
+      'post_title' => $event_title,
+      'post_content' => $event_description,
+      'event_start_date' => $event_start_date,
+      'event_end_date' => $event_end_date,
+      'event_price' => $event_price,
+      'event_location' => $event_location,
+      'image_id' => $image_id,
+      'image_url' => $image_url
+    )
   );
-
-  return $response;
+  return new WP_REST_Response($response, 200);
 }
 
 function delete_event($request)
