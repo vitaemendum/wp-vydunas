@@ -48,68 +48,69 @@ function register_book_post_type()
 }
 add_action('init', 'register_book_post_type');
 
-function register_book_fields() {
+function register_book_fields()
+{
     $book_fields = array(
-      'book_title',
-      'book_description',
-      'book_author',
-      'book_isbn',
-      'book_quantity',
-      'book_image'
+        'book_title',
+        'book_description',
+        'book_author',
+        'book_isbn',
+        'book_quantity',
+        'book_image'
     );
-  
+
     foreach ($book_fields as $field) {
-      if ($field === 'book_image') {
-        register_rest_field(
-          'books',
-          $field,
-          array(
-            'get_callback'   => null,
-            'update_callback'=> null,
-            'schema'         => array(
-              'type'         => 'object',
-              'description'  => ucfirst(str_replace('_', ' ', $field)),
-              'context'      => array('view', 'edit'),
-              'properties'   => array(
-                'id' => array(
-                  'type'        => 'integer',
-                  'description' => 'Attachment ID',
-                  'context'     => array('view', 'edit'),
-                  'readonly'    => true,
-                ),
-                'url' => array(
-                  'type'        => 'string',
-                  'description' => 'Attachment URL',
-                  'context'     => array('view', 'edit'),
-                  'readonly'    => true,
-                ),
-                'alt' => array(
-                  'type'        => 'string',
-                  'description' => 'Attachment alt text',
-                  'context'     => array('view', 'edit'),
-                ),
-              ),
-            ),
-            'sanitize_callback' => 'rest_sanitize_attachment_id',
-          )
-        );
-      } else {
-        register_rest_field(
-          'books',
-          $field,
-          array(
-            'schema'          => array(
-              'type' => $field === 'book_quantity' ? 'integer' : 'string',       
-              'description' => ucfirst(str_replace('_', ' ', $field)),
-              'context'     => array('view', 'edit'),
-            ),
-          )
-        );
-      }
+        if ($field === 'book_image') {
+            register_rest_field(
+                'books',
+                $field,
+                array(
+                    'get_callback'   => null,
+                    'update_callback' => null,
+                    'schema'         => array(
+                        'type'         => 'object',
+                        'description'  => ucfirst(str_replace('_', ' ', $field)),
+                        'context'      => array('view', 'edit'),
+                        'properties'   => array(
+                            'id' => array(
+                                'type'        => 'integer',
+                                'description' => 'Attachment ID',
+                                'context'     => array('view', 'edit'),
+                                'readonly'    => true,
+                            ),
+                            'url' => array(
+                                'type'        => 'string',
+                                'description' => 'Attachment URL',
+                                'context'     => array('view', 'edit'),
+                                'readonly'    => true,
+                            ),
+                            'alt' => array(
+                                'type'        => 'string',
+                                'description' => 'Attachment alt text',
+                                'context'     => array('view', 'edit'),
+                            ),
+                        ),
+                    ),
+                    'sanitize_callback' => 'rest_sanitize_attachment_id',
+                )
+            );
+        } else {
+            register_rest_field(
+                'books',
+                $field,
+                array(
+                    'schema'          => array(
+                        'type' => $field === 'book_quantity' ? 'integer' : 'string',
+                        'description' => ucfirst(str_replace('_', ' ', $field)),
+                        'context'     => array('view', 'edit'),
+                    ),
+                )
+            );
+        }
     }
-  }
-  add_action('rest_api_init', 'register_book_fields');
-  
+}
+add_action('rest_api_init', 'register_book_fields');
+
 
 
 add_action('rest_api_init', function () {
@@ -146,5 +147,122 @@ add_action('rest_api_init', function () {
 function create_book($request)
 {
     $book_data = $request->get_params();
-    var_dump($book_data['book_author']);
+
+    // Validate required fields
+    if (
+        empty($book_data['book_title']) || empty($book_data['book_description']) ||
+        empty($book_data['book_author']) || empty($book_data['book_isbn']) ||
+        empty($book_data['book_quantity'])
+    ) {
+        return new WP_Error('missing_fields', __('Missing required fields.', 'text-domain'), array('status' => 400));
+    }
+
+    // Sanitize and validate input data
+    $title = sanitize_text_field($book_data['book_title']);
+    $description = sanitize_text_field($book_data['book_description']);
+    $author = sanitize_text_field($book_data['book_author']);
+    $isbn = sanitize_text_field($book_data['book_isbn']);
+    $quantity = floatval($book_data['book_quantity']);
+
+    // Insert post
+    $post_data = array(
+        'post_title' => $title,
+        'post_content' => $description,
+        'post_type' => 'book',
+        'post_status' => 'publish',
+    );
+
+    $post_id = wp_insert_post($post_data);
+    update_post_meta($post_id, 'book_author', $author);
+    update_post_meta($post_id, 'book_isbn', $isbn);
+    update_post_meta($post_id, 'book_quantity', $quantity);
+
+    // Handle image upload
+    $image_id = 0;
+    $image_url = '';
+    if (isset($_FILES['book_image'])) {
+        $upload = wp_upload_bits($_FILES['book_image']['name'], null, file_get_contents($_FILES['book_image']['tmp_name']));
+        if (isset($upload['error']) && $upload['error'] != 0) {
+            return new WP_Error('upload_error', __('Error uploading image.', 'text-domain'), array('status' => 400));
+        } else {
+            $image_id = wp_insert_attachment(array(
+                'post_mime_type' => $upload['type'],
+                'post_title' => preg_replace('/\.[^.]+$/', '', $_FILES['book_image']['name']),
+                'post_content' => '',
+                'post_status' => 'inherit'
+            ), $upload['file']);
+            require_once(ABSPATH . 'wp-admin/includes/image.php');
+            $attachment_data = wp_generate_attachment_metadata($image_id, $upload['file']);
+            set_post_thumbnail($post_id, $image_id);
+            wp_update_attachment_metadata($image_id, $attachment_data);
+            $image_url = wp_get_attachment_url($image_id);
+        }
+    }
+
+    $response = array(
+        'status' => 'success',
+        'message' => 'Book created successfully!',
+        'data' => array(
+            'book_id' => $post_id,
+            'book_title' => $title,
+            'book_description' => $description,
+            'book_author' => $author,
+            'book_isbn' => $isbn,
+            'book_quantity' => $quantity,
+            'image_id' => $image_id,
+            'image_url' => $image_url
+        )
+    );
+    return new WP_REST_Response($response, 200);
+}
+
+// Get event data
+function get_book_data($id)
+{
+    $book = get_post($id);
+
+    if (!$book || $book->post_type !== 'book') {
+        $response = new WP_Error('no_book', 'Book not found', array('status' => 404));
+        return $response;
+    }
+
+    $book_data = array(
+        'id' => $book->ID,
+        'book_title' => $book->post_title,
+        'book_description' => $book->post_content,
+        'book_author' => get_post_meta($book->ID, 'book_author', true),
+        'book_isbn' => get_post_meta($book->ID, 'book_isbn', true),
+        'book_quantity' => get_post_meta($book->ID, 'book_quantity', true),
+        'book_image' => get_the_post_thumbnail_url($book->ID, 'full')
+    );
+
+    return $book_data;
+}
+
+// Get all events
+function get_all_books($request)
+{
+    $args = array(
+        'post_type' => 'book',
+        'post_status' => 'publish',
+        'posts_per_page' => -1,
+    );
+    $books = get_posts($args);
+    $data = array();
+
+    foreach ($books as $book) {
+        $response = get_book_data($book->ID);
+        if (is_wp_error($response)) {
+            return $response;
+        }
+        $data[] = $response;
+    }
+
+    if (empty($data)) {
+        $response = new WP_Error('no_books', 'No books found', array('status' => 404));
+    } else {
+        $response = new WP_REST_Response($data, 200);
+    }
+
+    return $response;
 }
