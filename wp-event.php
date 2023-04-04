@@ -8,9 +8,6 @@
  * Network:     true
  */
 
-use WP_REST_Response;
-use WP_Error;
-
 function create_event_post_type()
 {
   $labels = array(
@@ -167,8 +164,6 @@ add_action('rest_api_init', function () {
       ),
     )
   );
-
-
 
   // Register REST API endpoints for events
   register_rest_route('wp/v2', '/events', array(
@@ -376,23 +371,21 @@ function create_event($request)
 
 // Update event
 function update_event($request)
-{  
-  $id = (int) $request['id'];  
+{
+  $id = (int) $request['id'];
   $event = get_post($id);
   // Check if event exists
   if (!$event || $event->post_type !== 'event') {
     return new WP_Error('no_event', __('Invalid event ID', 'text-domain'), array('status' => 404));
   }
 
-  var_dump($request->get_params());
-
   // Sanitize and validate input data
-  $event_title = sanitize_text_field( $request->get_param( 'event_title' ) );
-  $event_description = sanitize_text_field( $request->get_param( 'event_description' ) );
-  $event_start_date = sanitize_text_field( $request->get_param( 'event_start_date' ) );
-  $event_end_date = sanitize_text_field( $request->get_param( 'event_end_date' ) );
-  $event_price = floatval( $request->get_param( 'event_price' ) );
-  $event_location = sanitize_text_field( $request->get_param( 'event_location' ) );
+  $event_title = sanitize_text_field($request->get_param('event_title'));
+  $event_description = sanitize_text_field($request->get_param('event_description'));
+  $event_start_date = sanitize_text_field($request->get_param('event_start_date'));
+  $event_end_date = sanitize_text_field($request->get_param('event_end_date'));
+  $event_price = floatval($request->get_param('event_price'));
+  $event_location = sanitize_text_field($request->get_param('event_location'));
 
   // Update post
   $post_data = array(
