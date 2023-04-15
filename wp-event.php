@@ -2,7 +2,7 @@
 
 /**
  * Plugin Name: Event 
- * Description: Event 
+ * Description: Event plugin
  * Version:     1.0.0
  * License:     GPLv2
  * Network:     true
@@ -26,14 +26,11 @@ function create_event_post_type()
   $args = array(
     'labels'              => $labels,
     'public'              => true,
-    'show_ui'             => true,
-    'show_in_menu'        => true,
     'query_var'           => true,
     'rewrite'             => array('slug' => 'event'),
     'capability_type'     => 'event',
     'has_archive'         => true,
     'hierarchical'        => false,
-    'menu_position'       => 5,
     'supports' => array('title', 'editor', 'excerpt', 'thumbnail'),
     'show_in_rest'          => true,
     'rest_base'             => 'events',
