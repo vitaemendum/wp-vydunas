@@ -420,7 +420,6 @@ function update_book($request)
                 'book_author' => $book_author,
                 'book_isbn' => $book_isbn,
                 'book_quantity' => $book_quantity,
-                'url' => wp_get_attachment_url($attachment_id),
             ]
         ];
         wp_update_post($post_data);

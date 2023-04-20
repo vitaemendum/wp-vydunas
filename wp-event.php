@@ -8,473 +8,501 @@
  * Network:     true
  */
 
-function create_event_post_type()
-{
-  $labels = array(
-    'name'               => __('Events'),
-    'singular_name'      => __('Event'),
-    'add_new'            => __('Add New Event'),
-    'add_new_item'       => __('Add New Event'),
-    'edit_item'          => __('Edit Event'),
-    'new_item'           => __('New Event'),
-    'view_item'          => __('View Event'),
-    'search_items'       => __('Search Events'),
-    'not_found'          => __('No events found'),
-    'not_found_in_trash' => __('No events found in trash'),
-  );
+require_once ABSPATH . '/wp-admin/includes/file.php';
+require_once(ABSPATH . 'wp-admin/includes/image.php');
 
-  $args = array(
-    'labels'              => $labels,
-    'public'              => true,
-    'query_var'           => true,
-    'rewrite'             => array('slug' => 'event'),
-    'capability_type'     => 'event',
-    'has_archive'         => true,
-    'hierarchical'        => false,
-    'supports' => array('title', 'editor', 'excerpt', 'thumbnail'),
-    'show_in_rest'          => true,
-    'rest_base'             => 'events',
+// Registering custom post type for events
+add_action('init', function () {
+  register_post_type('event', [
+    'labels' => [
+      'name' => __('Events'),
+      'singular_name' => __('Event')
+    ],
+    'public' => false,
+    'capability_type' => 'post',
+    'hierarchical'       => false,
+    'menu_position'      => null,
+    'show_in_rest'       => true,
+    'rest_base'          => 'events',
     'rest_controller_class' => 'WP_REST_Posts_Controller',
-    'status' => 'event',
+    'supports' => ['title', 'author', 'thumbnail']
+  ]);
+});
+
+function register_event_fields()
+{
+  $event_fields = array(
+    'event_start_date',
+    'event_end_date',
+    'event_price',
+    'event_location',
+    'event_image'
   );
 
-  register_post_type('event', $args);
+  foreach ($event_fields as $field) {
+    if ($field === 'event_image') {
+      register_rest_field(
+        'events',
+        $field,
+        array(
+          'get_callback'   => null,
+          'update_callback' => null,
+          'schema'         => array(
+            'type'         => 'object',
+            'description'  => ucfirst(str_replace('_', ' ', $field)),
+            'context'      => array('view', 'edit'),
+            'properties'   => array(
+              'id' => array(
+                'type'        => 'integer',
+                'description' => 'Attachment ID',
+                'context'     => array('view', 'edit'),
+                'readonly'    => true,
+              ),
+              'url' => array(
+                'type'        => 'string',
+                'description' => 'Attachment URL',
+                'context'     => array('view', 'edit'),
+                'readonly'    => true,
+              ),
+              'alt' => array(
+                'type'        => 'string',
+                'description' => 'Attachment alt text',
+                'context'     => array('view', 'edit'),
+              ),
+            ),
+          ),
+          'sanitize_callback' => 'rest_sanitize_attachment_id',
+        )
+      );
+    } else {
+      register_rest_field(
+        'events',
+        $field,
+        array(
+          'schema'          => array(
+            'type' => $field === 'event_price' ? 'integer' : 'string',
+            'description' => ucfirst(str_replace('_', ' ', $field)),
+            'context'     => array('view', 'edit'),
+          ),
+        )
+      );
+    }
+  }
 }
-add_action('init', 'create_event_post_type');
+add_action('rest_api_init', 'register_event_fields');
 
 add_action('rest_api_init', function () {
-
-  // Register custom fields for events
-  register_rest_field(
-    'events',
-    'event_title',
-    array(
-      'schema'          => array(
-        'type'        => 'string',
-        'description' => 'Event title',
-        'context'     => array('view', 'edit'),
-      ),
-    )
-  );
-  register_rest_field(
-    'events',
-    'event_description',
-    array(
-      'schema'          => array(
-        'type'        => 'string',
-        'description' => 'Event description',
-        'context'     => array('view', 'edit'),
-      ),
-    )
-  );
-  register_rest_field(
-    'events',
-    'event_start_date',
-    array(
-      'schema'          => array(
-        'type'        => 'string',
-        'description' => 'Event start date',
-        'context'     => array('view', 'edit'),
-      ),
-    )
-  );
-  register_rest_field(
-    'events',
-    'event_end_date',
-    array(
-      'schema'          => array(
-        'type'        => 'string',
-        'description' => 'Event end date',
-        'context'     => array('view', 'edit'),
-      ),
-    )
-  );
-  register_rest_field(
-    'events',
-    'event_price',
-    array(
-      'schema'          => array(
-        'type'        => 'number',
-        'description' => 'Event price',
-        'context'     => array('view', 'edit'),
-      ),
-    )
-  );
-  register_rest_field(
-    'events',
-    'event_location',
-    array(
-      'schema'          => array(
-        'type'        => 'string',
-        'description' => 'Event location',
-        'context'     => array('view', 'edit'),
-      ),
-    )
-  );
-  register_rest_field(
-    'events',
-    'event_image',
-    array(
-      'get_callback' => function ($object, $field_name, $request) {
-        $image_id = get_post_thumbnail_id($object['id']);
-        $image = wp_get_attachment_image_src($image_id, 'full');
-        return $image[0];
-      },
-      'update_callback' => function ($value, $object, $field_name, $request) {
-        if (isset($value['id'])) {
-          set_post_thumbnail($object->ID, $value['id']);
-          $image_url = wp_get_attachment_image_src($value['id'], 'full')[0];
-        } elseif (isset($value['url'])) {
-          $image_url = $value['url'];
-          $image_id = media_sideload_image($image_url, $object->ID);
-          if (!is_wp_error($image_id)) {
-            set_post_thumbnail($object->ID, $image_id);
-          }
-        }
-        update_post_meta($object->ID, 'event_image_url', $image_url);
-        return true;
-      },
-      'schema' => array(
-        'type'       => 'object',
-        'properties' => array(
-          'id' => array(
-            'type'        => 'integer',
-            'description' => 'ID of the event image attachment',
-            'context'     => array('view', 'edit'),
-          ),
-          'url' => array(
-            'type'        => 'string',
-            'description' => 'URL of the event image',
-            'context'     => array('view', 'edit'),
-          ),
-          'width' => array(
-            'type'        => 'integer',
-            'description' => 'Width of the event image',
-            'context'     => array('view', 'edit'),
-          ),
-          'height' => array(
-            'type'        => 'integer',
-            'description' => 'Height of the event image',
-            'context'     => array('view', 'edit'),
-          ),
-        ),
-      ),
-    )
-  );
-
   // Register REST API endpoints for events
   register_rest_route('wp/v2', '/events', array(
-    'methods' => 'GET',
-    'callback' => 'get_all_events',
+    'methods' => Wp_rest_server::READABLE,
+    'callback' => 'get_events',
   ));
   register_rest_route('wp/v2', '/events/(?P<id>\d+)', array(
-    'methods' => 'GET',
-    'callback' => 'get_single_event',
+    'methods' => Wp_rest_server::READABLE,
+    'callback' => 'get_event',
+    'args' => array(
+      'id' => array(
+        'validate_callback' => function ($value) {
+          return is_numeric($value);
+        }
+      ),
+    ),
   ));
-
 
   register_rest_route('wp/v2', '/events', array(
-    'methods' => 'POST',
+    'methods' => WP_REST_Server::CREATABLE,
     'callback' => 'create_event',
     'permission_callback' => function () {
-      return current_user_can('publish_posts');
+      return current_user_can('edit_posts');
     }
   ));
+
   register_rest_route('wp/v2', '/events/(?P<id>\d+)', array(
-    'methods' => 'PUT',
+    'methods' => WP_REST_Server::EDITABLE,
     'callback' => 'update_event',
+    'args' => array(
+      'id' => array(
+        'validate_callback' => function ($value) {
+          return is_numeric($value);
+        }
+      ),
+    ),
     'permission_callback' => function () {
-      return current_user_can('publish_posts');
+      return current_user_can('edit_posts');
     }
   ));
+
   register_rest_route('wp/v2', '/events/(?P<id>\d+)', array(
     'methods' => 'DELETE',
     'callback' => 'delete_event',
+    'args' => array(
+      'id' => array(
+        'validate_callback' => function ($value) {
+          return is_numeric($value);
+        }
+      ),
+    ),
     'permission_callback' => function () {
-      return current_user_can('publish_posts');
+      return current_user_can('edit_posts');
     }
   ));
 });
 
-// Get all events
-function get_all_events($request)
-{
-  $args = array(
-    'post_type' => 'event',
-    'post_status' => 'publish',
-    'posts_per_page' => -1,
-  );
-  $events = get_posts($args);
-  $data = array();
-
-  foreach ($events as $event) {
-    $response = get_event_data($event->ID);
-    if (is_wp_error($response)) {
-      return $response;
-    }
-    $data[] = $response;
-  }
-
-  if (empty($data)) {
-    $response = new WP_Error('no_events', 'No events found', array('status' => 404));
-  } else {
-    $response = new WP_REST_Response($data, 200);
-  }
-
-  return $response;
-}
-
 // Get a single event
-function get_single_event($request)
+function get_event($request)
 {
-  $id = (int) $request['id'];
+  $params = $request->get_params();
+  $post_id = $params['id'];
 
-  if (!$id) {
-    $response = new WP_Error('invalid_id', 'Invalid event ID', array('status' => 400));
-    return $response;
+  $post = get_post($post_id);
+  if (!$post) {
+    return new WP_Error('invalid_event_id', __('Invalid event ID'), ['status' => 404]);
   }
 
-  $event = get_post($id);
-
-  if (!$event || $event->post_type !== 'event') {
-    $response = new WP_Error('no_event', 'Event not found', array('status' => 404));
-    return $response;
-  }
-
-  $data = get_event_data($id);
-
-  if (is_wp_error($data)) {
-    return $data;
-  }
-
-  $response = new WP_REST_Response($data, 200);
-
-  return $response;
-}
-
-// Get event data
-function get_event_data($id)
-{
-  $event = get_post($id);
-
-  if (!$event || $event->post_type !== 'event') {
-    $response = new WP_Error('no_event', 'Event not found', array('status' => 404));
-    return $response;
-  }
-
-  $event_data = array(
-    'id' => $event->ID,
-    'event_title' => $event->post_title,
-    'event_description' => $event->post_content,
-    'event_start_date' => get_post_meta($event->ID, 'event_start_date', true),
-    'event_end_date' => get_post_meta($event->ID, 'event_end_date', true),
-    'event_price' => get_post_meta($event->ID, 'event_price', true),
-    'event_location' => get_post_meta($event->ID, 'event_location', true),
-    'event_image' => get_the_post_thumbnail_url($event->ID, 'full')
+  $file = array(
+    'post_type' => 'attachment',
+    'post_parent' => $post_id,
   );
 
-  return $event_data;
+  $attachment = get_posts($file);
+  if (!$attachment) {
+    return new WP_Error('no_attachment', __('No attachment found for this event'), ['status' => 404]);
+  }
+
+  $file_url = wp_get_attachment_url($attachment[0]->ID);
+
+  return [
+    'id' => $post_id,
+    'title' => $post->post_title,
+    'content' => $post->post_content,
+    'event_start_date' => get_post_meta($post->ID, 'event_start_date', true),
+    'event_end_date' => get_post_meta($post->ID, 'event_end_date', true),
+    'event_price' => get_post_meta($post->ID, 'event_price', true),
+    'event_location' => get_post_meta($post->ID, 'event_location', true),
+    'url' => $file_url,
+  ];
+}
+
+// Get all events
+function get_events($request)
+{
+  $query = new WP_Query([
+    'post_type' => 'event',
+    'posts_per_page' => -1
+  ]);
+
+  // Check if query is successful
+  if (!$query || $query->post_count === 0) {
+    return new WP_Error('query_failed', __('No events found'), ['status' => 404]);
+  }
+
+  $response = [];
+  foreach ($query->posts as $post) {
+    $attachments = get_posts([
+      'post_type' => 'attachment',
+      'posts_per_page' => 1,
+      'post_parent' => $post->ID,
+    ]);
+
+    $attachment_id = $attachments ? $attachments[0]->ID : null;
+    $attachment_url = $attachment_id ? wp_get_attachment_url($attachment_id) : null;
+
+    $response[] = [
+      'id' => $post->ID,
+      'title' => $post->post_title,
+      'content' => $post->post_content,
+      'event_start_date' => get_post_meta($post->ID, 'event_start_date', true),
+      'event_end_date' => get_post_meta($post->ID, 'event_end_date', true),
+      'event_price' => get_post_meta($post->ID, 'event_price', true),
+      'event_location' => get_post_meta($post->ID, 'event_location', true),
+      'attachment_id' => $attachment_id,
+      'attachment_url' => $attachment_url,
+    ];
+  }
+  return $response;
 }
 
 function create_event($request)
 {
-  $event_data = $request->get_params();
+  $params = $request->get_params();
 
   // Validate required fields
-  if (empty($event_data['event_title']) || empty($event_data['event_description']) || empty($event_data['event_start_date']) || empty($event_data['event_end_date']) || empty($event_data['event_price']) || empty($event_data['event_location'])) {
-    return new WP_Error('missing_fields', __('Missing required fields.', 'text-domain'), array('status' => 400));
+  if (empty($params['title'])) {
+    return new WP_Error('missing_title', __('Title is required.', 'text-domain'), array('status' => 400));
+  }
+  if (empty($params['content'])) {
+    return new WP_Error('missing_content', __('Content is required.', 'text-domain'), array('status' => 400));
+  }
+  if (empty($params['event_start_date'])) {
+    return new WP_Error('missing_title', __('Event start date is required.', 'text-domain'), array('status' => 400));
+  }
+  if (empty($params['event_end_date'])) {
+    return new WP_Error('missing_category', __('Event end date is required.', 'text-domain'), array('status' => 400));
+  }
+  if (empty($params['event_price'])) {
+    return new WP_Error('missing_category', __('Event price is required.', 'text-domain'), array('status' => 400));
+  }
+  if (empty($params['event_location'])) {
+    return new WP_Error('missing_category', __('Event location is required.', 'text-domain'), array('status' => 400));
   }
 
   // Sanitize and validate input data
-  $title = sanitize_text_field($event_data['event_title']);
-  $description = sanitize_text_field($event_data['event_description']);
-  $start_date = sanitize_text_field($event_data['event_start_date']);
-  $end_date = sanitize_text_field($event_data['event_end_date']);
-  $price = floatval($event_data['event_price']);
-  $location = sanitize_text_field($event_data['event_location']);
-
-  // Validate input data
-  if (strlen($title) < 5) {
-    return new WP_Error('invalid_title', __('Title should be at least 5 characters long.', 'text-domain'), array('status' => 400));
-  }
-
-  if (strlen($description) < 10) {
-    return new WP_Error('invalid_description', __('Description should be at least 10 characters long.', 'text-domain'), array('status' => 400));
-  }
-
-  if (!is_numeric($price)) {
-    return new WP_Error('invalid_price', __('Price should be a number.', 'text-domain'), array('status' => 400));
-  }
+  $title = sanitize_text_field($params['title']);
+  $content = sanitize_text_field($params['content']);
+  $event_start_date = sanitize_text_field($params['event_start_date']);
+  $event_end_date = sanitize_text_field($params['event_end_date']);
+  $event_price = floatval($params['event_price']);
+  $event_location = sanitize_text_field($params['event_location']);
 
   // Validate start and end date
-  $current_date = date('Y-m-d');
-  if ($start_date < $current_date || $end_date < $current_date) {
-    return new WP_Error('invalid_date', __('Event date cannot be older than the current date.', 'text-domain'), array('status' => 400));
+  if (strtotime($event_start_date) < time()) {
+    return new WP_Error('invalid_date', __('Event start date cannot be older than the current date.', 'text-domain'), array('status' => 400));
   }
 
-  // Insert post
-  $post_data = array(
-    'post_title' => $title,
-    'post_content' => $description,
-    'post_type' => 'event',
-    'post_status' => 'publish',
-  );
-
-  $post_id = wp_insert_post($post_data);
-  update_post_meta($post_id, 'event_start_date', $start_date);
-  update_post_meta($post_id, 'event_end_date', $end_date);
-  update_post_meta($post_id, 'event_price', $price);
-  update_post_meta($post_id, 'event_location', $location);
+  if (strtotime($event_end_date) < time()) {
+    return new WP_Error('invalid_date', __('Event end date cannot be older than the current date.', 'text-domain'), array('status' => 400));
+  } elseif (strtotime($event_end_date) < strtotime($event_start_date)) {
+    return new WP_Error('invalid_date', __('Event end date cannot be older than the event start date.', 'text-domain'), array('status' => 400));
+  }
 
   // Handle image upload
-  $image_id = 0;
-  $image_url = '';
-  if (isset($_FILES['event_image'])) {
-    $upload = wp_upload_bits($_FILES['event_image']['name'], null, file_get_contents($_FILES['event_image']['tmp_name']));
-    if (isset($upload['error']) && $upload['error'] != 0) {
-      return new WP_Error('upload_error', __('Error uploading image.', 'text-domain'), array('status' => 400));
-    } else {
-      $image_id = wp_insert_attachment(array(
-        'post_mime_type' => $upload['type'],
-        'post_title' => preg_replace('/\.[^.]+$/', '', $_FILES['event_image']['name']),
-        'post_content' => '',
-        'post_status' => 'inherit'
-      ), $upload['file']);
-      require_once(ABSPATH . 'wp-admin/includes/image.php');
-      $attachment_data = wp_generate_attachment_metadata($image_id, $upload['file']);
-      set_post_thumbnail($post_id, $image_id);
-      wp_update_attachment_metadata($image_id, $attachment_data);
-      $image_url = wp_get_attachment_url($image_id);
-    }
+  $file = $_FILES['event_image'];
+  // Check for file upload errors
+  if ($file['error'] !== UPLOAD_ERR_OK) {
+    return new WP_Error('invalid_upload', __('Invalid file upload'), ['status' => 400]);
   }
-
-  $response = array(
-    'status' => 'success',
-    'message' => 'Event created successfully!',
-    'data' => array(
-      'event_id' => $post_id,
-      'event_title' => $title,
-      'event_description' => $description,
-      'event_start_date' => $start_date,
-      'event_end_date' => $end_date,
-      'event_price' => $price,
-      'event_location' => $location,
-      'image_id' => $image_id,
-      'image_url' => $image_url
-    )
-  );
-  return new WP_REST_Response($response, 200);
+  // Validate file type
+  $allowed_types = ['jpg', 'png'];
+  $file_ext = pathinfo($file['name'], PATHINFO_EXTENSION);
+  if (!in_array(strtolower($file_ext), $allowed_types)) {
+    return new WP_Error('invalid_file_type', __('Invalid file type'), ['status' => 400]);
+  }
+  // Process and validate the file upload
+  $uploaded_file = wp_handle_upload($file, ['test_form' => false]);
+  if ($uploaded_file && !isset($uploaded_file['error'])) {
+    $file_name = basename($file['name']);
+    $file_type = wp_check_filetype($file_name, null);
+    // Create a new post for the document
+    $post = [
+      'post_title' => $title,
+      'post_content' => $content,
+      'post_type' => 'event',
+      'post_status' => 'publish',
+      'meta_input' => [
+        'event_start_date' => $event_start_date,
+        'event_end_date' => $event_end_date,
+        'event_price' => $event_price,
+        'event_location' => $event_location,
+      ]
+    ];
+    $post_id = wp_insert_post($post);
+    // Attach the uploaded file to the post
+    $attachment = [
+      'guid' => $uploaded_file['url'],
+      'post_mime_type' => $file_type['type'],
+      'post_title' => $file_name,
+      'post_content' => $content,
+      'post_status' => 'inherit',
+      'post_parent' => $post_id
+    ];
+    $attachment_id = wp_insert_attachment($attachment, $uploaded_file['file'], $post_id);
+    if (!is_wp_error($attachment_id)) {
+      $attachment_data = wp_generate_attachment_metadata($attachment_id, $uploaded_file['file']);
+      wp_update_attachment_metadata($attachment_id, $attachment_data);
+      return [
+        'message' => 'Event created successfully.',
+        'data'    => array(
+          'id' => $post_id,
+          'title' => $title,
+          'content' => $content,
+          'event_start_date' => $event_start_date,
+          'event_end_date' => $event_end_date,
+          'event_price' => $event_price,
+          'event_location' => $event_location,
+          'url' => wp_get_attachment_url($attachment_id),
+        ),
+      ];
+    } else {
+      // Delete the post if attachment creation failed
+      wp_delete_post($post_id, true);
+      return new WP_Error('upload_failed', __('Failed to upload event'), ['status' => 500]);
+    }
+  } else {
+    return new WP_Error('upload_failed', __('Failed to upload event'), ['status' => 500]);
+  }
 }
 
 // Update event
 function update_event($request)
 {
-  $id = (int) $request['id'];
-  $event = get_post($id);
-  // Check if event exists
-  if (!$event || $event->post_type !== 'event') {
-    return new WP_Error('no_event', __('Invalid event ID', 'text-domain'), array('status' => 404));
+  $params = $request->get_params();
+  $id = $params['id'];
+
+  // Validate required fields
+  if (empty($params['title'])) {
+    return new WP_Error('missing_title', __('Title is required.', 'text-domain'), array('status' => 400));
+  }
+  if (empty($params['content'])) {
+    return new WP_Error('missing_content', __('Content is required.', 'text-domain'), array('status' => 400));
+  }
+  if (empty($params['event_start_date'])) {
+    return new WP_Error('missing_title', __('Event start date is required.', 'text-domain'), array('status' => 400));
+  }
+  if (empty($params['event_end_date'])) {
+    return new WP_Error('missing_category', __('Event end date is required.', 'text-domain'), array('status' => 400));
+  }
+  if (empty($params['event_price'])) {
+    return new WP_Error('missing_category', __('Event price is required.', 'text-domain'), array('status' => 400));
+  }
+  if (empty($params['event_location'])) {
+    return new WP_Error('missing_category', __('Event location is required.', 'text-domain'), array('status' => 400));
   }
 
   // Sanitize and validate input data
-  $event_title = sanitize_text_field($request->get_param('event_title'));
-  $event_description = sanitize_text_field($request->get_param('event_description'));
-  $event_start_date = sanitize_text_field($request->get_param('event_start_date'));
-  $event_end_date = sanitize_text_field($request->get_param('event_end_date'));
-  $event_price = floatval($request->get_param('event_price'));
-  $event_location = sanitize_text_field($request->get_param('event_location'));
+  $title = sanitize_text_field($params['title']);
+  $content = sanitize_text_field($params['content']);
+  $event_start_date = sanitize_text_field($params['event_start_date']);
+  $event_end_date = sanitize_text_field($params['event_end_date']);
+  $event_price = floatval($params['event_price']);
+  $event_location = sanitize_text_field($params['event_location']);
 
-  // Update post
-  $post_data = array(
-    'ID'           => $id,
-    'post_title'   => $event_title,
-    'post_content' => $event_description,
-    'post_type'    => 'event',
-    'post_status'  => 'publish',
-  );
-
-  $post_id = wp_update_post($post_data);
-
-  if (is_wp_error($post_id)) {
-    return new WP_Error('update_error', $post_id->get_error_message(), array('status' => 500));
+  // Validate start and end date
+  if (strtotime($event_start_date) < time()) {
+    return new WP_Error('invalid_date', __('Event start date cannot be older than the current date.', 'text-domain'), array('status' => 400));
   }
 
-  // Update event meta data
-  update_post_meta($post_id, 'event_start_date', $event_start_date);
-  update_post_meta($post_id, 'event_end_date', $event_end_date);
-  update_post_meta($post_id, 'event_price', $event_price);
-  update_post_meta($post_id, 'event_location', $event_location);
+  if (strtotime($event_end_date) < time()) {
+    return new WP_Error('invalid_date', __('Event end date cannot be older than the current date.', 'text-domain'), array('status' => 400));
+  } elseif (strtotime($event_end_date) < strtotime($event_start_date)) {
+    return new WP_Error('invalid_date', __('Event end date cannot be older than the event start date.', 'text-domain'), array('status' => 400));
+  }
 
-  // Handle image upload
-  $image_id = 0;
-  $image_url = '';
-  if (isset($_FILES['event_image'])) {
-    $upload = wp_upload_bits($_FILES['event_image']['name'], null, file_get_contents($_FILES['event_image']['tmp_name']));
-    if (isset($upload['error']) && $upload['error'] != 0) {
-      return new WP_Error('upload_error', __('Error uploading image.', 'text-domain'), array('status' => 400));
-    } else {
-      $image_id = wp_insert_attachment(array(
-        'post_mime_type' => $upload['type'],
-        'post_title' => preg_replace('/.[^.]+$/', '', $_FILES['event_image']['name']),
-        'post_content' => '',
-        'post_status' => 'inherit'
-      ), $upload['file']);
-      require_once(ABSPATH . 'wp-admin/includes/image.php');
-      $attachment_data = wp_generate_attachment_metadata($image_id, $upload['file']);
-      set_post_thumbnail($post_id, $image_id);
-      wp_update_attachment_metadata($image_id, $attachment_data);
-      $image_url = wp_get_attachment_url($image_id);
+  // Get the existing document post
+  $post = get_post($id);
+  if (!$post) {
+    return new WP_Error('event_not_found', __('Event not found'), ['status' => 404]);
+  }
+
+  // Check if there's a new file upload
+  if (!empty($_FILES['event_image'])) {
+    $file = $_FILES['event_image'];
+    // Check for file upload errors
+    if ($file['error'] !== UPLOAD_ERR_OK) {
+      return new WP_Error('invalid_upload', __('Invalid file upload'), ['status' => 400]);
     }
-  }
+    // Validate file type
+    $allowed_types = ['jpg', 'png'];
+    $file_ext = pathinfo($file['name'], PATHINFO_EXTENSION);
+    if (!in_array(strtolower($file_ext), $allowed_types)) {
+      return new WP_Error('invalid_file_type', __('Invalid file type'), ['status' => 400]);
+    }
+    // Process and validate the file upload
+    $uploaded_file = wp_handle_upload($file, ['test_form' => false]);
+    if ($uploaded_file && !isset($uploaded_file['error'])) {
+      $file_name = basename($file['name']);
+      $file_type = wp_check_filetype($file_name, null);
 
-  $response = array(
-    'status' => 'success',
-    'message' => 'Event updated successfully!',
-    'data' => array(
-      'post_title' => $event_title,
-      'post_content' => $event_description,
+      // Update the document post
+      $post_data = [
+        'post_title' => $title,
+        'post_content' => $content,
+        'meta_input' => [
+          'event_start_date' => $event_start_date,
+          'event_end_date' => $event_end_date,
+          'event_price' => $event_price,
+          'event_location' => $event_location,
+        ]
+      ];
+      wp_update_post($post_data);
+
+      // Delete the existing file attachment
+      $attachments = get_attached_media('', $id);
+      if (!empty($attachments)) {
+        foreach ($attachments as $attachment) {
+          wp_delete_attachment($attachment->ID, true);
+        }
+      }
+
+      // Attach the new file to the post
+      $attachment = [
+        'guid' => $uploaded_file['url'],
+        'post_mime_type' => $file_type['type'],
+        'post_title' => $file_name,
+        'post_content' => $content,
+        'post_status' => 'inherit',
+        'post_parent' => $id,
+
+      ];
+      $attachment_id = wp_insert_attachment($attachment, $uploaded_file['file'], $id);
+      if (!is_wp_error($id)) {
+        $attachment_data = wp_generate_attachment_metadata($attachment_id, $uploaded_file['file']);
+        wp_update_attachment_metadata($attachment_id, $attachment_data);
+      } else {
+        // Revert to the old file attachment if there was an error
+        $attachment_id = add_attachment_by_url($post->ID, $post->guid);
+      }
+    }
+  } else {
+    // Update the document post with new title and meta data only
+    $post_data = [
+      'post_title' => $title,
+      'post_content' => $content,
+      'meta_input' => [
+        'event_start_date' => $event_start_date,
+        'event_end_date' => $event_end_date,
+        'event_price' => $event_price,
+        'event_location' => $event_location,
+      ]
+    ];
+    wp_update_post($post_data);
+  }
+  // Get the updated document data
+  $updated_post = get_post($id);
+  var_dump($updated_post);
+  // Return the updated event data
+  $response = [
+    'message' => 'Event updated successfully.',
+    'data'    => array(
+      'id' => $updated_post->ID,
+      'title' => $updated_post->post_title,
+      'post_content' => $updated_post->content,
       'event_start_date' => $event_start_date,
       'event_end_date' => $event_end_date,
       'event_price' => $event_price,
       'event_location' => $event_location,
-      'image_id' => $image_id,
-      'image_url' => $image_url
-    )
-  );
-  return new WP_REST_Response($response, 200);
+    ),
+  ];
+  return $response;
 }
 
 function delete_event($request)
 {
-  $id = (int) $request['id'];
+  $id = $request->get_param('id');
 
-  if (!$id) {
-    $response = new WP_Error('invalid_id', 'Invalid event ID', array('status' => 400));
-    return $response;
+  $post = get_post($id);
+  if (!$post || $post->post_type !== 'event') {
+    return new WP_Error('not_found', __('Event not found'), ['status' => 404]);
   }
 
-  $event = get_post($id);
+  // Delete event attachment if it exists
+  $attachment = get_posts([
+    'post_type' => 'attachment',
+    'post_parent' => $id,
+  ]);
 
-  if (!$event || $event->post_type !== 'event') {
-    $response = new WP_Error('no_event', 'Event not found', array('status' => 404));
-    return $response;
+  $attachment_id = $attachment ? $attachment[0]->ID : null;
+  if ($attachment_id) {
+    wp_delete_attachment($attachment_id, true);
   }
 
-  // Delete event image if it exists
-  $image_id = get_post_thumbnail_id($event->ID);
-  if ($image_id) {
-    wp_delete_attachment($image_id, true);
-  }
-
-  // Delete event
   $result = wp_delete_post($id, true);
 
-  if (!$result) {
-    $response = new WP_Error('delete_failed', 'Event deletion failed', array('status' => 500));
-    return $response;
+  // Check if post is successfully deleted
+  if (!$result || is_wp_error($result)) {
+    return new WP_Error('delete_failed', __('Failed to delete event'), ['status' => 500]);
   }
-
-  $response = new WP_REST_Response(null, 204);
-
-  return $response;
+  return [
+    'id' => $id,
+    'message' => __('Event deleted successfully')
+  ];
 }

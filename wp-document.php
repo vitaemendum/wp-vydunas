@@ -92,9 +92,6 @@ add_action('rest_api_init', function () {
   register_rest_route('wp/v2', '/documents', [
     'methods' => Wp_rest_server::READABLE,
     'callback' => 'get_documents',
-    'permission_callback' => function ($request) {
-      return current_user_can('edit_posts');
-    }
   ]);
 });
 
@@ -109,9 +106,6 @@ add_action('rest_api_init', function () {
         }
       ),
     ),
-    'permission_callback' => function ($request) {
-      return current_user_can('edit_posts');
-    }
   ]);
 });
 
@@ -381,7 +375,6 @@ function update_document($request)
   } else {
     // Update the document post with new title and meta data only
     $post_data = [
-      'message' => 'Document updated successfully.',
       'data'    => array(
         'id' => $id,
         'post_title' => $title,
@@ -395,6 +388,7 @@ function update_document($request)
 
   // Get the updated document data
   $updated_post = get_post($id);
+  var_dump($updated_post);
   // Return the updated document data
   $response = [
     'message' => 'Document updated successfully.',
