@@ -234,16 +234,16 @@ function create_event($request)
     return new WP_Error('missing_content', __('Content is required.', 'text-domain'), array('status' => 400));
   }
   if (empty($params['event_start_date'])) {
-    return new WP_Error('missing_title', __('Event start date is required.', 'text-domain'), array('status' => 400));
+    return new WP_Error('missing_event_start_date', __('Event start date is required.', 'text-domain'), array('status' => 400));
   }
   if (empty($params['event_end_date'])) {
-    return new WP_Error('missing_category', __('Event end date is required.', 'text-domain'), array('status' => 400));
+    return new WP_Error('missing_event_end_date', __('Event end date is required.', 'text-domain'), array('status' => 400));
   }
   if (empty($params['event_price'])) {
-    return new WP_Error('missing_category', __('Event price is required.', 'text-domain'), array('status' => 400));
+    return new WP_Error('missing_event_price', __('Event price is required.', 'text-domain'), array('status' => 400));
   }
   if (empty($params['event_location'])) {
-    return new WP_Error('missing_category', __('Event location is required.', 'text-domain'), array('status' => 400));
+    return new WP_Error('missing_event_location', __('Event location is required.', 'text-domain'), array('status' => 400));
   }
 
   // Sanitize and validate input data
@@ -346,16 +346,16 @@ function update_event($request)
     return new WP_Error('missing_content', __('Content is required.', 'text-domain'), array('status' => 400));
   }
   if (empty($params['event_start_date'])) {
-    return new WP_Error('missing_title', __('Event start date is required.', 'text-domain'), array('status' => 400));
+    return new WP_Error('missing_event_start_date', __('Event start date is required.', 'text-domain'), array('status' => 400));
   }
   if (empty($params['event_end_date'])) {
-    return new WP_Error('missing_category', __('Event end date is required.', 'text-domain'), array('status' => 400));
+    return new WP_Error('missing_event_end_date', __('Event end date is required.', 'text-domain'), array('status' => 400));
   }
   if (empty($params['event_price'])) {
-    return new WP_Error('missing_category', __('Event price is required.', 'text-domain'), array('status' => 400));
+    return new WP_Error('missing_event_price', __('Event price is required.', 'text-domain'), array('status' => 400));
   }
   if (empty($params['event_location'])) {
-    return new WP_Error('missing_category', __('Event location is required.', 'text-domain'), array('status' => 400));
+    return new WP_Error('missing_event_location', __('Event location is required.', 'text-domain'), array('status' => 400));
   }
 
   // Sanitize and validate input data
@@ -404,13 +404,14 @@ function update_event($request)
 
       // Update the document post
       $post_data = [
+        'ID' => $id,
         'post_title' => $title,
         'post_content' => $content,
         'meta_input' => [
           'event_start_date' => $event_start_date,
           'event_end_date' => $event_end_date,
           'event_price' => $event_price,
-          'event_location' => $event_location,
+          'event_location' => $event_location
         ]
       ];
       wp_update_post($post_data);
@@ -445,6 +446,7 @@ function update_event($request)
   } else {
     // Update the document post with new title and meta data only
     $post_data = [
+      'ID' => $id,
       'post_title' => $title,
       'post_content' => $content,
       'meta_input' => [
@@ -456,16 +458,16 @@ function update_event($request)
     ];
     wp_update_post($post_data);
   }
+
   // Get the updated document data
   $updated_post = get_post($id);
-  var_dump($updated_post);
-  // Return the updated event data
+  // Return the updated document data
   $response = [
     'message' => 'Event updated successfully.',
     'data'    => array(
       'id' => $updated_post->ID,
       'title' => $updated_post->post_title,
-      'post_content' => $updated_post->content,
+      'content' => $updated_post->post_content,
       'event_start_date' => $event_start_date,
       'event_end_date' => $event_end_date,
       'event_price' => $event_price,

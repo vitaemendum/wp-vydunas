@@ -236,13 +236,13 @@ function create_book($request)
         return new WP_Error('missing_content', __('Content is required.', 'text-domain'), array('status' => 400));
     }
     if (empty($params['book_author'])) {
-        return new WP_Error('missing_title', __('Book author is required.', 'text-domain'), array('status' => 400));
+        return new WP_Error('missing_book_author', __('Book author is required.', 'text-domain'), array('status' => 400));
     }
     if (empty($params['book_isbn'])) {
-        return new WP_Error('missing_category', __('Book ISBN is required.', 'text-domain'), array('status' => 400));
+        return new WP_Error('missing_book_isbn', __('Book ISBN is required.', 'text-domain'), array('status' => 400));
     }
     if (empty($params['book_quantity'])) {
-        return new WP_Error('missing_category', __('Book quantity is required.', 'text-domain'), array('status' => 400));
+        return new WP_Error('missing_book_quantity', __('Book quantity is required.', 'text-domain'), array('status' => 400));
     }
 
     // Sanitize and validate input data
@@ -329,13 +329,13 @@ function update_book($request)
         return new WP_Error('missing_content', __('Content is required.', 'text-domain'), array('status' => 400));
     }
     if (empty($params['book_author'])) {
-        return new WP_Error('missing_title', __('Book author is required.', 'text-domain'), array('status' => 400));
+        return new WP_Error('missing_book_author', __('Book author is required.', 'text-domain'), array('status' => 400));
     }
     if (empty($params['book_isbn'])) {
-        return new WP_Error('missing_category', __('Book ISBN is required.', 'text-domain'), array('status' => 400));
+        return new WP_Error('missing_book_isbn', __('Book ISBN is required.', 'text-domain'), array('status' => 400));
     }
     if (empty($params['book_quantity'])) {
-        return new WP_Error('missing_category', __('Book quantity is required.', 'text-domain'), array('status' => 400));
+        return new WP_Error('missing_book_quantity', __('Book quantity is required.', 'text-domain'), array('status' => 400));
     }
 
     // Sanitize and validate input data
@@ -413,7 +413,7 @@ function update_book($request)
     } else {
         // Update the document post with new title and meta data only
         $post_data = [
-            'id' => $id,
+            'ID' => $id,
             'post_title' => $title,
             'post_content' => $content,
             'meta_input' => [
