@@ -176,7 +176,7 @@ function create_reservation($request)
     // Sanitize and validate input data
     $reservation_book_id = sanitize_text_field($params['reservation_book_id']);
 
-    $reservation_reserved_status = true;
+    $reservation_status = true;
     $book = get_post($reservation_book_id);
     $book_quantity = get_post_meta($book->ID, 'book_quantity', true);
     if ($book_quantity < 1) {
@@ -197,10 +197,12 @@ function create_reservation($request)
         return new WP_Error('create_error', __('Failed to create reservation post.', 'text-domain'), array('status' => 500));
     }
 
+    $reservation_date = current_time('Y-m-d H:i:s');
+
     // Add metadata
     update_post_meta($post_id, 'reservation_book_id', $reservation_book_id);
-    update_post_meta($post_id, 'reservation_status', $reservation_reserved_status);
-    update_post_meta($post_id, 'reservation_date', current_time('Y-m-d H:i:s'));
+    update_post_meta($post_id, 'reservation_status', $reservation_status);
+    update_post_meta($post_id, 'reservation_date', $reservation_date);
 
     return array(
         'message' => 'Lesson created successfully.',
@@ -208,8 +210,8 @@ function create_reservation($request)
             'id' => $post_id,
             'title' => $book->post_title,
             'reservation_book_id' => $reservation_book_id,
-            'reservation_status' => $reservation_reserved_status,
-            'reservation_date' => current_time('Y-m-d H:i:s'),
+            'reservation_status' => $reservation_status,
+            'reservation_date' => $reservation_date,
         )
     );
 }
@@ -221,7 +223,7 @@ function update_reservation($request)
     
     // Get the existing lesson post
     $post = get_post($id);
-    if (!$post || $reservation->post_type !== 'reservation') {
+    if (!$post || $post->post_type !== 'reservation') {
         return new WP_Error('reservation_not_found', __('Reservation not found'), ['status' => 404]);
     }
 
@@ -239,39 +241,41 @@ function update_reservation($request)
     $old_book_id = get_post_meta($post->ID, 'reservation_book_id', true);
     $old_book = get_post($old_book_id);
     $old_book_quantity = get_post_meta($old_book->ID, 'book_quantity', true);
-
+    
     $book = get_post($reservation_book_id);
     $book_quantity = get_post_meta($book->ID, 'book_quantity', true);
-
+    
     if ($book_quantity < 1) {
         return new WP_Error('out_of_stock', __( 'Book is out of stock', 'text-domain'), array('status' => 400));
     }
 
-    if ($book->ID !== $old_book_id and $reservation_status === 0){
+    if ($book->ID !== $old_book->ID and $reservation_status === false){
+        $old_book_quantity++;
+        $book_quantity--;      
+        update_post_meta($old_book->ID, 'book_quantity', $old_book_quantity);
+        update_post_meta($book->ID, 'book_quantity', $book_quantity);
+    } elseif ($book->ID !== $old_book->ID and $reservation_status === true){
         $old_book_quantity++;
         $book_quantity--;
         update_post_meta($old_book->ID, 'book_quantity', $old_book_quantity);
         update_post_meta($book->ID, 'book_quantity', $book_quantity);
-    } elif ($book->ID !== $old_book_id and $reservation_status === 1){
-        $old_book_quantity++;
-        $book_quantity--;
-        update_post_meta($old_book->ID, 'book_quantity', $old_book_quantity);
-        update_post_meta($book->ID, 'book_quantity', $book_quantity);
-    } elif ($book->ID === $old_book_id and $reservation_status === 0){
+    } elseif ($book->ID === $old_book->ID and $reservation_status === false){
         $book_quantity++;
         update_post_meta($book->ID, 'book_quantity', $book_quantity);
-    } elif ($book->ID === $old_book_id and $reservation_status === 1){
+    } elseif ($book->ID === $old_book->ID and $reservation_status === true){
         $book_quantity--;
         update_post_meta($book->ID, 'book_quantity', $book_quantity);
     }
+
+    $reservation_date = current_time('Y-m-d H:i:s');
 
     $post_data = [
         'ID' => $id,
         'post_title' => $book->post_title,
         'meta_input' => [
             'reservation_book_id' => $reservation_book_id,
-            'reservation_status' => $reservation_reserved_status,
-            'reservation_date' => current_time('Y-m-d H:i:s'),
+            'reservation_status' => $reservation_status,
+            'reservation_date' => $reservation_date,
         ]
     ];
     wp_update_post($post_data);
@@ -282,11 +286,11 @@ function update_reservation($request)
     $response = [
         'message' => 'Reservation updated successfully.',
         'data'    => array(
-            'id' => $post_id,
-            'title' => $book->post_title,
+            'id' => $updated_post->ID,
+            'title' => $updated_post->post_title,
             'reservation_book_id' => $reservation_book_id,
-            'reservation_status' => $reservation_reserved_status,
-            'reservation_date' => current_time('Y-m-d H:i:s'),
+            'reservation_status' => $reservation_status,
+            'reservation_date' => $reservation_date,
         ),
     ];
     return $response;
