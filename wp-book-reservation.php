@@ -221,9 +221,9 @@ function update_reservation($request)
     
     // Get the existing lesson post
     $post = get_post($id);
-    if (!$post) {
+    if (!$post || $reservation->post_type !== 'reservation') {
         return new WP_Error('reservation_not_found', __('Reservation not found'), ['status' => 404]);
-    }    
+    }
 
     // Validate required fields
     if (empty($params['reservation_book_id'])) {
@@ -239,45 +239,57 @@ function update_reservation($request)
     $old_book_id = get_post_meta($post->ID, 'reservation_book_id', true);
     $old_book = get_post($old_book_id);
     $old_book_quantity = get_post_meta($old_book->ID, 'book_quantity', true);
-    update_post_meta($old_book->ID, 'book_quantity', $old_book_quantity);
 
     $book = get_post($reservation_book_id);
     $book_quantity = get_post_meta($book->ID, 'book_quantity', true);
+
     if ($book_quantity < 1) {
-        return new WP_Error('Book_quantity_below_0', __('Book quantity is below 0.', 'text-domain'), array('status' => 400));
-    } else {
-        update_post_meta($book->ID, 'book_quantity', $book_quantity - 1);
+        return new WP_Error('out_of_stock', __( 'Book is out of stock', 'text-domain'), array('status' => 400));
     }
 
-    // $post_data = [
-    //     'ID' => $id,
-    //     'post_title' => $title,
-    //     'meta_input' => [
-    //         'lesson_teacher' => $lesson_teacher,
-    //         'lesson_day_of_week' => $lesson_day_of_week,
-    //         'lesson_start_time' => $lesson_start_time,
-    //         'lesson_end_time' => $lesson_end_time,
-    //         'lesson_room_number' => $lesson_room_number
-    //     ]
-    // ];
-    // wp_update_post($post_data);
+    if ($book->ID !== $old_book_id and $reservation_status === 0){
+        $old_book_quantity++;
+        $book_quantity--;
+        update_post_meta($old_book->ID, 'book_quantity', $old_book_quantity);
+        update_post_meta($book->ID, 'book_quantity', $book_quantity);
+    } elif ($book->ID !== $old_book_id and $reservation_status === 1){
+        $old_book_quantity++;
+        $book_quantity--;
+        update_post_meta($old_book->ID, 'book_quantity', $old_book_quantity);
+        update_post_meta($book->ID, 'book_quantity', $book_quantity);
+    } elif ($book->ID === $old_book_id and $reservation_status === 0){
+        $book_quantity++;
+        update_post_meta($book->ID, 'book_quantity', $book_quantity);
+    } elif ($book->ID === $old_book_id and $reservation_status === 1){
+        $book_quantity--;
+        update_post_meta($book->ID, 'book_quantity', $book_quantity);
+    }
 
-    // // Get the updated lesson data
-    // $updated_post = get_post($id);
-    // // Return the updated lesson data
-    // $response = [
-    //     'message' => 'Document updated successfully.',
-    //     'data'    => array(
-    //         'id' => $updated_post->ID,
-    //         'title' => $updated_post->post_title,
-    //         'lesson_teacher' => $lesson_teacher,
-    //         'lesson_day_of_week' => $lesson_day_of_week,
-    //         'lesson_start_time' => $lesson_start_time,
-    //         'lesson_end_time' => $lesson_end_time,
-    //         'lesson_room_number' => $lesson_room_number
-    //     ),
-    // ];
-    // return $response;
+    $post_data = [
+        'ID' => $id,
+        'post_title' => $book->post_title,
+        'meta_input' => [
+            'reservation_book_id' => $reservation_book_id,
+            'reservation_status' => $reservation_reserved_status,
+            'reservation_date' => current_time('Y-m-d H:i:s'),
+        ]
+    ];
+    wp_update_post($post_data);
+
+    // Get the updated lesson data
+    $updated_post = get_post($id);
+    // Return the updated lesson data
+    $response = [
+        'message' => 'Reservation updated successfully.',
+        'data'    => array(
+            'id' => $post_id,
+            'title' => $book->post_title,
+            'reservation_book_id' => $reservation_book_id,
+            'reservation_status' => $reservation_reserved_status,
+            'reservation_date' => current_time('Y-m-d H:i:s'),
+        ),
+    ];
+    return $response;
 }
 
 function delete_reservation($request)
@@ -287,13 +299,20 @@ function delete_reservation($request)
     $post = get_post($id);
     if (!$post || $post->post_type !== 'reservation') {
         return new WP_Error('not_found', __('Reservation not found'), ['status' => 404]);
-    }
-    
+    }   
+
+    $old_book_id = get_post_meta($post->ID, 'reservation_book_id', true);
+    $old_book = get_post($old_book_id);
+    $old_book_quantity = get_post_meta($old_book->ID, 'book_quantity', true);
+    $old_book_quantity++;
+    update_post_meta($old_book->ID, 'book_quantity', $old_book_quantity);
 
     $result = wp_delete_post($id, true);
 
     // Check if post is successfully deleted
     if (!$result || is_wp_error($result)) {
+        $old_book_quantity++;
+        update_post_meta($old_book->ID, 'book_quantity', $old_book_quantity);
         return new WP_Error('delete_failed', __('Failed to delete reservation'), ['status' => 500]);
     }
     return [

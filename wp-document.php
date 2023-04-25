@@ -388,7 +388,6 @@ function update_document($request)
 
   // Get the updated document data
   $updated_post = get_post($id);
-  var_dump($updated_post);
   // Return the updated document data
   $response = [
     'message' => 'Document updated successfully.',
