@@ -1,5 +1,10 @@
 <?php
 
+if (!defined('SHORTINIT')) {
+    define('SHORTINIT', 1);
+}
+require_once $_SERVER['DOCUMENT_ROOT'] . '/wp-load.php';
+
 /**
  * Plugin Name: Event 
  * Description: Event plugin
@@ -96,10 +101,12 @@ add_action('rest_api_init', function () {
   register_rest_route('wp/v2', '/events', array(
     'methods' => Wp_rest_server::READABLE,
     'callback' => 'get_events',
+	'permission_callback' => '__return_true',
   ));
   register_rest_route('wp/v2', '/events/(?P<id>\d+)', array(
     'methods' => Wp_rest_server::READABLE,
     'callback' => 'get_event',
+	'permission_callback' => '__return_true',
     'args' => array(
       'id' => array(
         'validate_callback' => function ($value) {
@@ -112,14 +119,13 @@ add_action('rest_api_init', function () {
   register_rest_route('wp/v2', '/events', array(
     'methods' => WP_REST_Server::CREATABLE,
     'callback' => 'create_event',
-    'permission_callback' => function () {
-      return current_user_can('edit_posts');
-    }
+    'permission_callback' => '__return_true',
   ));
 
   register_rest_route('wp/v2', '/events/(?P<id>\d+)', array(
     'methods' => WP_REST_Server::EDITABLE,
     'callback' => 'update_event',
+	'permission_callback' => '__return_true',
     'args' => array(
       'id' => array(
         'validate_callback' => function ($value) {
@@ -127,9 +133,6 @@ add_action('rest_api_init', function () {
         }
       ),
     ),
-    'permission_callback' => function () {
-      return current_user_can('edit_posts');
-    }
   ));
 
   register_rest_route('wp/v2', '/events/(?P<id>\d+)', array(
@@ -142,9 +145,7 @@ add_action('rest_api_init', function () {
         }
       ),
     ),
-    'permission_callback' => function () {
-      return current_user_can('edit_posts');
-    }
+    'permission_callback' => '__return_true',
   ));
 });
 

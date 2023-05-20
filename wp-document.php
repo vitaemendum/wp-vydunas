@@ -1,5 +1,11 @@
 <?php
 
+if (!defined('SHORTINIT')) {
+    define('SHORTINIT', 'true');
+}
+
+require_once dirname(__FILE__) . '/../../../wp-load.php';
+
 /**
  * Plugin Name: Document 
  * Description: Document plugin
@@ -8,8 +14,6 @@
  * Network:     true
  */
 
-require_once ABSPATH . '/wp-admin/includes/file.php';
-require_once(ABSPATH . 'wp-admin/includes/image.php');
 
 // Registering custom post type for documents
 add_action('init', function () {
@@ -92,6 +96,7 @@ add_action('rest_api_init', function () {
   register_rest_route('wp/v2', '/documents', [
     'methods' => Wp_rest_server::READABLE,
     'callback' => 'get_documents',
+	'permission_callback' => '__return_true',
   ]);
 });
 
@@ -99,6 +104,7 @@ add_action('rest_api_init', function () {
   register_rest_route('wp/v2', '/documents/(?P<id>\d+)', [
     'methods' => WP_REST_Server::READABLE,
     'callback' => 'get_document',
+	'permission_callback' => '__return_true',
     'args' => array(
       'id' => array(
         'validate_callback' => function ($value) {
@@ -113,9 +119,7 @@ add_action('rest_api_init', function () {
   register_rest_route('wp/v2', '/documents', [
     'methods' => WP_REST_Server::CREATABLE,
     'callback' => 'create_document',
-    'permission_callback' => function ($request) {
-      return current_user_can('edit_posts');
-    }
+    'permission_callback' => '__return_true',
   ]);
 });
 
@@ -130,9 +134,7 @@ add_action('rest_api_init', function () {
         }
       ),
     ),
-    'permission_callback' => function ($request) {
-      return current_user_can('edit_posts');
-    }
+    'permission_callback' => '__return_true',
   ]);
 });
 
@@ -147,9 +149,7 @@ add_action('rest_api_init', function () {
         }
       ),
     ),
-    'permission_callback' => function ($request) {
-      return current_user_can('delete_posts');
-    }
+    'permission_callback' => '__return_true',
   ]);
 });
 
@@ -220,6 +220,7 @@ function get_documents($request)
 
 function create_document($request)
 {
+	error_log( json_encode($request->get_headers('content_type')) );
   $params = $request->get_params();
   // Validate required fields
   if (empty($params['title'])) {
@@ -233,6 +234,7 @@ function create_document($request)
   $document_category = sanitize_text_field($params['document_category']);
 
   $file = $_FILES['document_file'];
+  //var_dump($file);
   // Check for file upload errors
   if ($file['error'] !== UPLOAD_ERR_OK) {
     return new WP_Error('invalid_upload', __('Invalid file upload'), ['status' => 400]);
@@ -272,16 +274,16 @@ function create_document($request)
     if (!is_wp_error($attachment_id)) {
       $attachment_data = wp_generate_attachment_metadata($attachment_id, $uploaded_file['file']);
       wp_update_attachment_metadata($attachment_id, $attachment_data);
-      return [
-        'message' => 'Document created successfully.',
-        'data'    => array(
-          'id' => $post_id,
-          'title' => $title,
-          'category' => $document_category,
-          'file_type' => $file_type['ext'],
-          'url' => wp_get_attachment_url($attachment_id),
-        ),
-      ];
+      return new WP_REST_Response([
+		  'message' => 'Document created successfully.',
+		  'data'    => array(
+			'id' => $post_id,
+			'title' => $title,
+			'category' => $document_category,
+			'file_type' => $file_type['ext'],
+			'url' => wp_get_attachment_url($attachment_id),
+		  ),
+		], 201);
     } else {
       // Delete the post if attachment creation failed
       wp_delete_post($post_id, true);
@@ -425,8 +427,7 @@ function delete_document($request)
   if (!$result || is_wp_error($result)) {
     return new WP_Error('delete_failed', __('Failed to delete document'), ['status' => 500]);
   }
-  return [
-    'id' => $id,
-    'message' => __('Document deleted successfully')
-  ];
+  $response = new WP_REST_Response();
+  $response->set_status(204);
+  return $response;
 }
