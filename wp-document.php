@@ -5,29 +5,13 @@ require_once dirname(__FILE__) . '/../../../wp-load.php';
 global $wpdb;
 
 /**
- * Plugin Name: Document 
+ * Plugin Name: Document
  * Description: Document plugin
  * Version:     1.0.0
  * License:     GPLv2
  * Network:     true
  */
 
-// if (false !== strpos($_SERVER['REQUEST_URI'], '/wp-json/wp/v2/documents')) {
-
-
-// }
-function zk_disable_plugins_for_rest_api($plugins)
-{
-  // Plugins array to keep
-  // var_dump($plugins);
-  $allowed = array(
-    'wp-vydunas/wp-document.php',
-    'jwt-authentication-for-wp-rest-api/jwt-auth.php'
-  );
-  $plugins = array_intersect($plugins, $allowed);
-  return $plugins;
-}
-add_filter('option_active_plugins', 'zk_disable_plugins_for_rest_api');
 // Registering custom post type for documents
 add_action('init', function () {
   register_post_type('document', [
