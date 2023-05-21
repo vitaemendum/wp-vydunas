@@ -1,10 +1,8 @@
 <?php
 
-if (!defined('SHORTINIT')) {
-    define('SHORTINIT', 'true');
-}
-
+define('SHORTINIT', 'true');
 require_once dirname(__FILE__) . '/../../../wp-load.php';
+global $wpdb;
 
 /**
  * Plugin Name: Document 
@@ -14,7 +12,22 @@ require_once dirname(__FILE__) . '/../../../wp-load.php';
  * Network:     true
  */
 
+// if (false !== strpos($_SERVER['REQUEST_URI'], '/wp-json/wp/v2/documents')) {
 
+
+// }
+function zk_disable_plugins_for_rest_api($plugins)
+{
+  // Plugins array to keep
+  // var_dump($plugins);
+  $allowed = array(
+    'wp-vydunas/wp-document.php',
+    'jwt-authentication-for-wp-rest-api/jwt-auth.php'
+  );
+  $plugins = array_intersect($plugins, $allowed);
+  return $plugins;
+}
+add_filter('option_active_plugins', 'zk_disable_plugins_for_rest_api');
 // Registering custom post type for documents
 add_action('init', function () {
   register_post_type('document', [
@@ -96,7 +109,7 @@ add_action('rest_api_init', function () {
   register_rest_route('wp/v2', '/documents', [
     'methods' => Wp_rest_server::READABLE,
     'callback' => 'get_documents',
-	'permission_callback' => '__return_true',
+    'permission_callback' => '__return_true',
   ]);
 });
 
@@ -104,7 +117,7 @@ add_action('rest_api_init', function () {
   register_rest_route('wp/v2', '/documents/(?P<id>\d+)', [
     'methods' => WP_REST_Server::READABLE,
     'callback' => 'get_document',
-	'permission_callback' => '__return_true',
+    'permission_callback' => '__return_true',
     'args' => array(
       'id' => array(
         'validate_callback' => function ($value) {
@@ -214,13 +227,15 @@ function get_documents($request)
       'attachment_url' => $attachment_url,
     ];
   }
+  $result = new WP_REST_Response($response, 200);
+  $result->set_headers(array('Cache-Control' => 'max-age=3600'));
 
-  return $response;
+  return $result;
 }
 
 function create_document($request)
 {
-	error_log( json_encode($request->get_headers('content_type')) );
+  error_log(json_encode($request->get_headers('content_type')));
   $params = $request->get_params();
   // Validate required fields
   if (empty($params['title'])) {
@@ -275,15 +290,15 @@ function create_document($request)
       $attachment_data = wp_generate_attachment_metadata($attachment_id, $uploaded_file['file']);
       wp_update_attachment_metadata($attachment_id, $attachment_data);
       return new WP_REST_Response([
-		  'message' => 'Document created successfully.',
-		  'data'    => array(
-			'id' => $post_id,
-			'title' => $title,
-			'category' => $document_category,
-			'file_type' => $file_type['ext'],
-			'url' => wp_get_attachment_url($attachment_id),
-		  ),
-		], 201);
+        'message' => 'Document created successfully.',
+        'data'    => array(
+          'id' => $post_id,
+          'title' => $title,
+          'category' => $document_category,
+          'file_type' => $file_type['ext'],
+          'url' => wp_get_attachment_url($attachment_id),
+        ),
+      ], 201);
     } else {
       // Delete the post if attachment creation failed
       wp_delete_post($post_id, true);
