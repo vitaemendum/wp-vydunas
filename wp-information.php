@@ -1,8 +1,12 @@
 <?php
 
+define('SHORTINIT', 'true');
+require_once dirname(__FILE__) . '/../../../wp-load.php';
+global $wpdb;
+
 /**
- * Plugin Name: Lesson 
- * Description: Lesson plugin
+ * Plugin Name: Information 
+ * Description: Information plugin
  * Version:     1.0.0
  * License:     GPLv2
  * Network:     true
@@ -32,7 +36,7 @@ add_action('init', function () {
 add_action('rest_api_init', function () {
     register_rest_route('wp/v2', '/information', [
         'methods' => Wp_rest_server::READABLE,
-        'callback' => 'get_information',
+        'callback' => 'get_all_information',
     ]);
 });
 
@@ -217,7 +221,7 @@ function update_information($request)
     return $response;
 }
 
-function delete_lesson($request)
+function delete_information($request)
 {
     $id = $request->get_param('id');
 

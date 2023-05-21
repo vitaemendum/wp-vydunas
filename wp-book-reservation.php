@@ -1,5 +1,9 @@
 <?php
 
+define('SHORTINIT', 'true');
+require_once dirname(__FILE__) . '/../../../wp-load.php';
+global $wpdb;
+
 /**
  * Plugin Name: book reservation 
  * Description: Book reservations plugin 
@@ -127,7 +131,7 @@ function get_reservation($request)
     if (!$post) {
         return new WP_Error('invalid_lesson_id', __('Invalid reservation ID'), ['status' => 404]);
     }
-    
+
     return [
         'id' => $post_id,
         'title' => $post->post_title,
@@ -220,7 +224,7 @@ function update_reservation($request)
 {
     $params = $request->get_params();
     $id = $params['id'];
-    
+
     // Get the existing lesson post
     $post = get_post($id);
     if (!$post || $post->post_type !== 'reservation') {
@@ -241,28 +245,28 @@ function update_reservation($request)
     $old_book_id = get_post_meta($post->ID, 'reservation_book_id', true);
     $old_book = get_post($old_book_id);
     $old_book_quantity = get_post_meta($old_book->ID, 'book_quantity', true);
-    
+
     $book = get_post($reservation_book_id);
     $book_quantity = get_post_meta($book->ID, 'book_quantity', true);
-    
+
     if ($book_quantity < 1) {
-        return new WP_Error('out_of_stock', __( 'Book is out of stock', 'text-domain'), array('status' => 400));
+        return new WP_Error('out_of_stock', __('Book is out of stock', 'text-domain'), array('status' => 400));
     }
 
-    if ($book->ID !== $old_book->ID and $reservation_status === false){
-        $old_book_quantity++;
-        $book_quantity--;      
-        update_post_meta($old_book->ID, 'book_quantity', $old_book_quantity);
-        update_post_meta($book->ID, 'book_quantity', $book_quantity);
-    } elseif ($book->ID !== $old_book->ID and $reservation_status === true){
+    if ($book->ID !== $old_book->ID and $reservation_status === false) {
         $old_book_quantity++;
         $book_quantity--;
         update_post_meta($old_book->ID, 'book_quantity', $old_book_quantity);
         update_post_meta($book->ID, 'book_quantity', $book_quantity);
-    } elseif ($book->ID === $old_book->ID and $reservation_status === false){
+    } elseif ($book->ID !== $old_book->ID and $reservation_status === true) {
+        $old_book_quantity++;
+        $book_quantity--;
+        update_post_meta($old_book->ID, 'book_quantity', $old_book_quantity);
+        update_post_meta($book->ID, 'book_quantity', $book_quantity);
+    } elseif ($book->ID === $old_book->ID and $reservation_status === false) {
         $book_quantity++;
         update_post_meta($book->ID, 'book_quantity', $book_quantity);
-    } elseif ($book->ID === $old_book->ID and $reservation_status === true){
+    } elseif ($book->ID === $old_book->ID and $reservation_status === true) {
         $book_quantity--;
         update_post_meta($book->ID, 'book_quantity', $book_quantity);
     }
@@ -303,7 +307,7 @@ function delete_reservation($request)
     $post = get_post($id);
     if (!$post || $post->post_type !== 'reservation') {
         return new WP_Error('not_found', __('Reservation not found'), ['status' => 404]);
-    }   
+    }
 
     $old_book_id = get_post_meta($post->ID, 'reservation_book_id', true);
     $old_book = get_post($old_book_id);

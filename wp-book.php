@@ -1,5 +1,9 @@
 <?php
 
+define('SHORTINIT', 'true');
+require_once dirname(__FILE__) . '/../../../wp-load.php';
+global $wpdb;
+
 /**
  * Plugin Name: Book 
  * Description: Book plugin
