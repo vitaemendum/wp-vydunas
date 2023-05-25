@@ -112,6 +112,7 @@ function get_information($request)
         'id' => $post_id,
         'title' => $post->post_title,
         'content' => $post->post_content,
+        'date' => $post->post_date,
     ];
 }
 
@@ -133,6 +134,7 @@ function get_all_information($request)
             'id' => $post->ID,
             'title' => $post->post_title,
             'content' => $post->post_content,
+            'date' => $post->post_date,
         ];
     }
 
@@ -154,10 +156,14 @@ function create_information($request)
     // Sanitize and validate input data
     $title = sanitize_text_field($params['title']);
     $content = sanitize_text_field($params['content']);
+    $currentDate = new DateTime();
+    $date = $currentDate->format('Y-m-d H:i');
+
 
     $post = array(
         'post_title' => $title,
         'post_content' => $content,
+        'post_date' => $date,
         'post_type' => 'information',
         'post_status' => 'publish'
     );
@@ -174,6 +180,7 @@ function create_information($request)
             'id' => $post_id,
             'title' => $title,
             'content' => $content,
+            'date' => $date
         )
     );
 }
@@ -199,11 +206,14 @@ function update_information($request)
     // Sanitize and validate input data
     $title = sanitize_text_field($params['title']);
     $content = sanitize_text_field($params['content']);
+    $currentDate = new DateTime();
+    $date = $currentDate->format('Y-m-d H:i');
 
     $post_data = [
         'ID' => $id,
         'post_title' => $title,
         'post_content' => $content,
+        'post_date' => $date,
     ];
     wp_update_post($post_data);
 
@@ -216,6 +226,7 @@ function update_information($request)
             'id' => $updated_post->ID,
             'title' => $updated_post->post_title,
             'content' => $updated_post->post_content,
+            'date' => $updated_post->post_date
         ),
     ];
     return $response;

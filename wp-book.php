@@ -39,6 +39,9 @@ function register_book_fields()
         'book_author',
         'book_isbn',
         'book_quantity',
+        'book_publisher',
+        'book_year_published',
+        'book_category',
         'book_image'
     );
 
@@ -83,7 +86,7 @@ function register_book_fields()
                 $field,
                 array(
                     'schema'          => array(
-                        'type' => $field === 'book_quantity' ? 'integer' : 'string',
+                        'type' => $field === 'book_quantity' || $field === 'book_year_published' ? 'integer' : 'string',
                         'description' => ucfirst(str_replace('_', ' ', $field)),
                         'context'     => array('view', 'edit'),
                     ),
@@ -186,6 +189,8 @@ function get_book($request)
         'book_author' => get_post_meta($post->ID, 'book_author', true),
         'book_isbn' => get_post_meta($post->ID, 'book_isbn', true),
         'book_quantity' => get_post_meta($post->ID, 'book_quantity', true),
+        'book_year_published' => get_post_meta($post->ID, 'book_year_published', true),
+        'book_category' => get_post_meta($post->ID, 'book_category', true),
         'url' => $attachment_url
     ];
 }
@@ -220,6 +225,8 @@ function get_books($request)
             'book_author' => get_post_meta($post->ID, 'book_author', true),
             'book_isbn' => get_post_meta($post->ID, 'book_isbn', true),
             'book_quantity' => get_post_meta($post->ID, 'book_quantity', true),
+            'book_year_published' => get_post_meta($post->ID, 'book_year_published', true),
+            'book_category' => get_post_meta($post->ID, 'book_category', true),
             'attachment_id' => $attachment_id,
             'attachment_url' => $attachment_url,
         ];
@@ -248,12 +255,20 @@ function create_book($request)
     if (empty($params['book_quantity'])) {
         return new WP_Error('missing_book_quantity', __('Book quantity is required.', 'text-domain'), array('status' => 400));
     }
+    if (empty($params['book_year_published'])) {
+        return new WP_Error('missing_book_quantity', __('Book publish year is required.', 'text-domain'), array('status' => 400));
+    }
+    if (empty($params['book_category'])) {
+        return new WP_Error('missing_book_quantity', __('Book category is required.', 'text-domain'), array('status' => 400));
+    }
 
     // Sanitize and validate input data
     $title = sanitize_text_field($params['title']);
     $content = sanitize_text_field($params['content']);
     $book_author = sanitize_text_field($params['book_author']);
     $book_isbn = sanitize_text_field($params['book_isbn']);
+    $book_year_published = intval($params['book_year_published']);
+    $book_category = sanitize_text_field($params['book_category']);
     $book_quantity = intval($params['book_quantity']);
 
     $file = $_FILES['book_image'];
@@ -282,6 +297,8 @@ function create_book($request)
                 'book_author' => $book_author,
                 'book_isbn' => $book_isbn,
                 'book_quantity' => $book_quantity,
+                'book_category' => $book_category,
+                'book_year_published' => $book_year_published,
             ]
         ];
         $post_id = wp_insert_post($post);
@@ -307,6 +324,8 @@ function create_book($request)
                     'book_author' => $book_author,
                     'book_isbn' => $book_isbn,
                     'book_quantity' => $book_quantity,
+                    'book_year_published' => $book_year_published,
+                    'book_category' => $book_category,
                     'url' => wp_get_attachment_url($attachment_id),
                 ),
             ];
@@ -341,6 +360,12 @@ function update_book($request)
     if (empty($params['book_quantity'])) {
         return new WP_Error('missing_book_quantity', __('Book quantity is required.', 'text-domain'), array('status' => 400));
     }
+    if (empty($params['book_year_published'])) {
+        return new WP_Error('missing_book_quantity', __('Book publish year is required.', 'text-domain'), array('status' => 400));
+    }
+    if (empty($params['book_category'])) {
+        return new WP_Error('missing_book_quantity', __('Book category is required.', 'text-domain'), array('status' => 400));
+    }
 
     // Sanitize and validate input data
     $title = sanitize_text_field($params['title']);
@@ -348,6 +373,8 @@ function update_book($request)
     $book_author = sanitize_text_field($params['book_author']);
     $book_isbn = sanitize_text_field($params['book_isbn']);
     $book_quantity = intval($params['book_quantity']);
+    $book_year_published = intval($params['book_year_published']);
+    $book_category = sanitize_text_field($params['book_category']);
 
     // Get the existing document post
     $post = get_post($id);
@@ -383,6 +410,8 @@ function update_book($request)
                     'book_author' => $book_author,
                     'book_isbn' => $book_isbn,
                     'book_quantity' => $book_quantity,
+                    'book_category' => $book_category,
+                    'book_year_published' => $book_year_published,
                 ]
             ];
             wp_update_post($post_data);
@@ -424,6 +453,8 @@ function update_book($request)
                 'book_author' => $book_author,
                 'book_isbn' => $book_isbn,
                 'book_quantity' => $book_quantity,
+                'book_year_published' => $book_year_published,
+                'book_category' => $book_category,
             ]
         ];
         wp_update_post($post_data);
@@ -441,6 +472,8 @@ function update_book($request)
             'book_author' => $book_author,
             'book_isbn' => $book_isbn,
             'book_quantity' => $book_quantity,
+            'book_year_published' => $book_year_published,
+            'book_category' => $book_category,
         ),
     ];
     return $response;
